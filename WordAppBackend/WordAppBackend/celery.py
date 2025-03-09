@@ -4,9 +4,9 @@ from django.conf import settings
 
 # 1. 导入django配置; 后续便于使用django组件功能
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'WordAppBackend.settings.dev')
+# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'WordAppBackend.settings.dev')
 
-# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'EmpManagerBackend.settings.prod')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'WordAppBackend.settings.prod')
 
 # 2. 实例化celery对象
 app = Celery('django_celery')

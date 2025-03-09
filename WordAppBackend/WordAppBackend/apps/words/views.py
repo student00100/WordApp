@@ -79,6 +79,12 @@ class GetWordDetailView(APIView):
                     setattr(word, key, value)  # 动态设置字段值
                 word.save()  # 保存修改到数据库
             time.sleep(1)
+        WordModel.objects.filter(phrases__isnull=True).delete()
+        bands = WordBandModel.objects.all()
+        for band in bands:
+            count = BandToWordModel.objects.filter(band=band).count()
+            band.word_count = count
+            band.save()
         return Response({'message': 'ok'})
 
 
