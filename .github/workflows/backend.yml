@@ -1,0 +1,42 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10.0"
+      - name: Build the Docker image
+        run: |
+          docker version
+          docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} --password=${{ secrets.ALI_DOCKER_PASSWORD }} crpi-4gclhim218z4wzwg.cn-beijing.personal.cr.aliyuncs.com
+          cd WordAppBackend
+          docker build . --file Dockerfile --tag crpi-4gclhim218z4wzwg.cn-beijing.personal.cr.aliyuncs.com/my_worktest/word-app:master
+          docker push crpi-4gclhim218z4wzwg.cn-beijing.personal.cr.aliyuncs.com/my_worktest/word-app:master
+      - name: Deploy to Server
+        uses: easingthemes/ssh-deploy@v2.1.5
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SOURCE: WordAppBackend/*
+          REMOTE_HOST: 8.134.156.56
+          REMOTE_USER: root
+          TARGET: /www/wwwroot/wordApp/WordAppBackend
+      - name: Remote SSH Deploy Command
+        uses: appleboy/ssh-action@master
+        with:
+          host: 8.134.156.56
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /www/wwwroot/wordApp/WordAppBackend
+            docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} --password=${{ secrets.ALI_DOCKER_PASSWORD }} crpi-4gclhim218z4wzwg.cn-beijing.personal.cr.aliyuncs.com
+            make pull_dev
+            make restart_dev
+            docker image prune -a -f
