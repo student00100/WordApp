@@ -242,3 +242,4 @@ CELERYBEAT_SCHEDULE = {
         'schedule': crontab(hour='4', minute='0'),  # 每天凌晨四点执行
     }
 }
+STATIC_ROOT = os.path.join(BASE_DIR.parent, 'static')
