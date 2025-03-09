@@ -11,8 +11,9 @@ class UserModel(AbstractUser):
     openid = models.CharField(verbose_name='微信openid', max_length=100, unique=True)
     # learning_goal = models.TextField(verbose_name='学习目标')
     studied_words = models.IntegerField(default=0)  # 已学单词数
-    learning_time = models.DurationField(default=0)  # 学习时长
+    # learning_time = models.IntegerField(default=0)  # 学习时长
     today_words = models.IntegerField(default=0, verbose_name='今日学习单词数')
+    using_word_band = models.ForeignKey('UserWordBandModel', on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         db_table = 't_users'
@@ -24,11 +25,12 @@ class UserModel(AbstractUser):
 
 
 class UserWordBandModel(BaseModel):
-    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='所属用户')
-    word_band = models.ForeignKey('words.WordBankModel', on_delete=models.CASCADE, verbose_name='对应的词书')
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='所属用户', related_name='word_bands')
+    word_band = models.ForeignKey('words.WordBandModel', on_delete=models.CASCADE, verbose_name='对应的词书')
     study_words = models.IntegerField(default=0, verbose_name='已学单词')
-    total_words = models.IntegerField(default=0, verbose_name='总单词数')
+    # total_words = models.IntegerField(default=0, verbose_name='总单词数')
     daily_goal = models.IntegerField(default=20, verbose_name='每日学习目标')
+    today_studied = models.IntegerField(default=0, verbose_name='今日学习数')
 
     class Meta:
         db_table = 't_user_word_band'
@@ -75,7 +77,7 @@ class ErrorWordModel(models.Model):
 
 
 class DailyRecordModel(models.Model):
-    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='用户')
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='用户', related_name='daily_records')
     date = models.DateField(auto_now_add=True, verbose_name='记录日期')
     new_words = models.IntegerField(default=0, verbose_name='新学单词')
     review_words = models.IntegerField(default=0, verbose_name='复习单词')

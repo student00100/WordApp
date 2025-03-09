@@ -1,0 +1,26 @@
+version: "3"
+services:
+  django:
+    image: crpi-4gclhim218z4wzwg.cn-beijing.personal.cr.aliyuncs.com/my_worktest/word-app:master
+    command: sh django_entrypoint.sh
+    networks:
+      - word_net
+    ports:
+      - "10071:8000"
+    volumes:
+      - ./:/app/WordAppBackend
+    environment:
+      - MYSQL_HOST=172.30.166.6    # 修改为服务名
+      - MYSQL_PORT=3306
+      - MYSQL_NAME=WordApp
+      - MYSQL_USER=WordApp
+      - MYSQL_PASSWORD=6LX3mEcSWxchfayM
+      - REDIS_HOST=172.30.166.6    # 修改为服务名
+      - REDIS_PORT=6379
+      - REDIS_DB=7
+      - REDIS_PASSWORD=zmdK3AbiimtbAaKw
+    restart: always
+
+networks:
+  word_net:
+    driver: bridge

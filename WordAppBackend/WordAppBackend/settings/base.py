@@ -14,6 +14,8 @@ import os
 import sys
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 # 添加导包路径
@@ -174,7 +176,7 @@ LOGGING = {
         },
     },
     'loggers': {  # 日志器
-        'erp': {  # 自己用的logger应用如下配置
+        'word ': {  # 自己用的logger应用如下配置
             'handlers': ['console', 'file', 'file_error'],  # 上线之后可以把'console'移除
             'level': 'DEBUG',
             'propagate': True,  # 是否向上一级logger实例传递日志信息
@@ -206,9 +208,9 @@ CORS_ORIGIN_WHITELIST = (
 CORS_ALLOW_CREDENTIALS = True  # 允许携带cookie，凡是出现在白名单中的域名，都可以访问后端。
 SIMPLE_JWT = {
     # token有效时长(返回的 access 有效时长)
-    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=3),
+    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(days=15),
     # token刷新的有效时间(返回的 refresh 有效时长)
-    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=6),
+    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=30),
 }
 
 # 设置媒体路由地址信息
@@ -217,3 +219,26 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.parent / 'media'
 # 添加自定义用户模型类(应用名+模型类名）
 AUTH_USER_MODEL = 'users.UserModel'
+# ---------------- celery 相关配置 ----------------------
+
+
+# 指定 Celery 能够接受的内容类型列表
+ACCEPT_CONTENT = ['json']
+# 任务将以json格式进行序列化
+TASK_SERIALIZER = 'json'
+# 结果以json格式进行序列化存储或传输
+RESULT_SERIALIZER = 'json'
+# 指定连接重试
+BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# 任务结果过期时间(单位:秒)
+TASK_RESULT_EXPIRES = 60 * 60 * 24
+# 时区配置
+TIMEZONE = "Asia/Shanghai"
+CELERY_ENABLE_UTC = False  # 关闭UTC时间
+ENABLE_UTC = False
+CELERYBEAT_SCHEDULE = {
+    'clear_word': {
+        'task': 'WordAppBackend.tasks.clear',  # 确保路径正确
+        'schedule': crontab(hour='4', minute='0'),  # 每天凌晨四点执行
+    }
+}

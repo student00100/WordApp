@@ -34,3 +34,10 @@ CACHES = {
     },
 }
 
+# 微信小程序
+WX_APPID = 'wxb531bffe27fd4e8b'
+WX_SECRET = 'e124b8542df78972af57071de5097704'
+# Broker配置，使用Redis作为消息中间件
+BROKER_URL = 'redis://127.0.0.1:6379/1'
+# BACKEND配置，使用Redis作为结果仓库
+RESULT_BACKEND = 'redis://127.0.0.1:6379/2'
