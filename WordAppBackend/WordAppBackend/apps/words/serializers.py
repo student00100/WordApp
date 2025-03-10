@@ -6,6 +6,7 @@ from words.models import CategoryModel, WordBandModel, WordModel
 
 class CategorySerializer(serializers.ModelSerializer):
     """词书类别序列化"""
+
     class Meta:
         model = CategoryModel
         fields = '__all__'
@@ -22,6 +23,7 @@ class WordBandSerializer(serializers.ModelSerializer):
 
 class UserWordBandSerializer(serializers.ModelSerializer):
     """用户词书创建/修改序列化"""
+
     # word_band = WordBandSerializer(read_only=True)
 
     class Meta:
@@ -54,13 +56,15 @@ class UserWordBandGetSerializer(UserWordBandSerializer):
 
 class WordListSerializer(serializers.ModelSerializer):
     """获取单词列表序列化"""
+
     class Meta:
         model = WordModel
-        fields = ('spelling', 'translations')
+        fields = ('id', 'spelling', 'translations')
 
 
 class WordDetailSerializer(serializers.ModelSerializer):
     """获取单个单词序列化"""
+
     class Meta:
         model = WordModel
         fields = '__all__'
@@ -68,6 +72,7 @@ class WordDetailSerializer(serializers.ModelSerializer):
 
 class DailyRecordSerializer(serializers.ModelSerializer):
     """每日单词记忆记录序列化器类"""
+
     class Meta:
         model = DailyRecordModel
         fields = '__all__'
