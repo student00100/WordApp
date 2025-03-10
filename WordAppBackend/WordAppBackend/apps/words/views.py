@@ -1,10 +1,12 @@
 import logging
+import random
+import re
 import time
 from datetime import timedelta
 
 import requests
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Case, When, Value
 from django.utils import timezone
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -15,10 +17,10 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, GenericViewSet, ReadOnlyModelViewSet
 
 from WordAppBackend.utils.paginations import GlobalPagination
-from users.models import UserWordBandModel, UserWordRecordModel, DailyRecordModel
+from users.models import UserWordBandModel, UserWordRecordModel, DailyRecordModel, ErrorWordModel
 from words.models import CategoryModel, WordModel, WordBandModel, BandToWordModel
 from words.serializers import CategorySerializer, WordBandSerializer, UserWordBandSerializer, UserWordBandGetSerializer, \
-    WordListSerializer, WordDetailSerializer, DailyRecordSerializer
+    WordListSerializer, WordDetailSerializer, DailyRecordSerializer, ErrorWordSerializer
 from words.utils import get_word_detail
 
 # Create your views here.
@@ -294,3 +296,197 @@ class DailyRecordView(ListAPIView):
 
     def get_queryset(self):
         return self.request.user.daily_records
+
+
+class ExerciseView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    # 题型权重配置
+    EXERCISE_TYPES = ['MC', 'ST', 'SF']
+    TYPE_WEIGHTS = [4, 3, 3]  # 词义选择40% 拼写30% 填空30%
+
+    def get(self, request):
+        """获取单道练习题"""
+        user = request.user
+
+        # 获取学过的单词（至少包含一个单词）
+        learned_words = UserWordRecordModel.objects.filter(user=user)
+        if not learned_words.exists():
+            return Response({'error': '请先学习至少一个单词'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 随机选择单词和题型
+        word_record = random.choice(learned_words)
+        ex_type = random.choices(self.EXERCISE_TYPES, weights=self.TYPE_WEIGHTS, k=1)[0]
+        word = word_record.word
+
+        # 生成题目
+        if ex_type == 'MC':
+            question = self._gen_mc_question(word)
+        elif ex_type == 'ST':
+            question = self._gen_st_question(word)
+        else:
+            question = self._gen_sf_question(word)
+
+        return Response({
+            'exercise': {
+                'type': ex_type,
+                'word_id': word.id,
+                'data': question,
+
+            }
+        })
+
+    def _gen_mc_question(self, word):
+        """生成词义选择题"""
+        # 获取其他单词的翻译作为干扰项
+        other_trans = WordModel.objects.exclude(pk=word.pk).values_list('translations', flat=True)[:20]
+        wrong_choices = [t for trans in other_trans for t in trans][:3]
+
+        options = [word.translations[0]] + wrong_choices
+        # 打乱顺序
+        random.shuffle(options)
+
+        return {
+            'question': f"单词【{word.spelling}】的正确含义是？",
+            'options': options,
+            'correct_index': options.index(word.translations[0])
+        }
+
+    def _gen_st_question(self, word):
+        """生成拼写测试题"""
+        return {
+            'question': "请拼写你听到的单词",
+            'audio_url': word.usspeech or word.ukspeech,
+            'hint': word.ukphone,  # 显示音标
+            'answer': word.spelling
+        }
+
+    def _gen_sf_question(self, word):
+        """生成例句填空题"""
+        sentence = random.choice(word.sentences) if word.sentences else ""
+        sentence = sentence.get('s_content', "")
+        pattern = r'(?<!\w){}(?!\w)'.format(re.escape(word.spelling))
+        blank_sentence = re.sub(pattern, ' ______ ', sentence, count=1).replace('  ', ' ')
+
+        return {
+            'question': f"补全句子：{blank_sentence}",
+            'hint': word.translations[0],  # 显示词义
+            'answer': word.spelling
+        }
+
+    def post(self, request):
+        """提交单题结果"""
+        user = request.user
+        data = request.data
+
+        # 获取对应单词记录
+        try:
+            record = UserWordRecordModel.objects.get(
+                user=user,
+                word_id=data['word_id']
+            )
+        except:
+            return Response({'error': '单词不存在'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 更新记忆阶段
+        is_correct = data.get('is_correct', False)
+        if is_correct:
+            record.correct_count += 1
+            record.memory_stage = min(5, record.memory_stage + 1)
+        else:
+            record.wrong_count += 1
+            record.memory_stage = max(0, record.memory_stage - 1)
+
+        # 设置下次复习时间
+        interval = 2 ** record.memory_stage
+        record.next_review = timezone.now() + timezone.timedelta(days=interval)
+        record.save()
+
+        # 记录错题
+        if not is_correct:
+            if ErrorWordModel.objects.filter(user=user, word_id=data['word_id']).exists():
+                ErrorWordModel.objects.filter(user=user, word_id=data['word_id']).update(
+                    error_count=F('error_count') + 1,
+                    next_review=timezone.now() + timezone.timedelta(days=1),
+                    track_correct_count=F('track_correct_count') - 1,
+                )
+            else:
+                ErrorWordModel.objects.create(
+                    user=user,
+                    word_id=data['word_id'],
+                    next_review=timezone.now() + timezone.timedelta(days=1),
+                )
+
+        return Response({'message': 'success'})
+
+
+class ErrorBookReviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """获取可复习的错题本单词（包含所有单词但按优先级排序）"""
+        user = request.user
+        now = timezone.now()
+
+        # 分优先级获取单词（可自由选择）
+        error_word = ErrorWordModel.objects.filter(user=user).order_by('next_review').first()
+        if error_word:
+            # 生成错题本专用题目（示例：只生成词义选择题）
+            return Response({'data': self._generate_error_exercise(error_word.word),
+                             'word_id': error_word.word.id})
+
+        return Response({'message': '错题本学习完毕'})
+
+    def _generate_error_exercise(self, word):
+        """生成词义选择题"""
+        # 获取其他单词的翻译作为干扰项
+        other_trans = WordModel.objects.exclude(pk=word.pk).values_list('translations', flat=True)[:20]
+        wrong_choices = [t for trans in other_trans for t in trans][:3]
+
+        options = [word.translations[0]] + wrong_choices
+        # 打乱顺序
+        random.shuffle(options)
+
+        return {
+            'question': f"单词【{word.spelling}】的正确含义是？",
+            'options': options,
+            'correct_index': options.index(word.translations[0])
+        }
+
+    def post(self, request):
+        """处理任意错题本单词的学习"""
+        user = request.user
+        is_correct = request.data.get('is_correct', False)
+        word_id = request.data.get('word_id', False)
+
+        with transaction.atomic():
+            try:
+                error_word = ErrorWordModel.objects.get(user=user, word_id=word_id)
+            except ErrorWordModel.DoesNotExist:
+                return Response({"detail": "错误单词不存在"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 更新正确次数
+            if is_correct:
+                error_word.track_correct_count += 1
+
+                # 达标检测
+                if error_word.track_correct_count >= error_word.correct_threshold:
+                    error_word.delete()
+                    return Response({'message': 'success'})
+
+            # 无论对错都更新复习时间（根据记忆算法）
+            interval = 2 ** max(error_word.track_correct_count, 0)
+            error_word.next_review = timezone.now() + timedelta(days=interval)
+            error_word.save()
+
+        return Response({
+            'message': 'success',
+        })
+
+
+class ErrorWordView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ErrorWordSerializer
+
+    def get_queryset(self):
+        return self.request.user.error_words.order_by('next_review')

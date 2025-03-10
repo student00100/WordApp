@@ -8,6 +8,9 @@ urlpatterns = [
     path('get_word_detail/', views.GetWordDetailView.as_view()),
     path('learn_word/', views.LearningProcessView.as_view()),
     path('daily_record/', views.DailyRecordView.as_view()),
+    path('exercise/', views.ExerciseView.as_view()),
+    path('error_book_review/', views.ErrorBookReviewView.as_view()),
+    path('error_word/', views.ErrorWordView.as_view()),
 ]
 router = routers.DefaultRouter()
 router.register('category', views.CategoryViewSet, basename='category')

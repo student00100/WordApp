@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 from WordAppBackend.utils.base_model import BaseModel
 
@@ -64,10 +65,12 @@ class UserWordRecordModel(models.Model):
 
 
 class ErrorWordModel(models.Model):
-    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='用户')
+    user = models.ForeignKey(UserModel, on_delete=models.CASCADE, verbose_name='用户', related_name='error_words')
     word = models.ForeignKey('words.WordModel', on_delete=models.CASCADE, verbose_name='单词')
     error_count = models.IntegerField(default=1, verbose_name='错误次数')
-    last_error_time = models.DateTimeField(auto_now=True, verbose_name='最后错误时间')
+    track_correct_count = models.IntegerField(default=0)  # 追踪正确次数
+    correct_threshold = models.IntegerField(default=3)  # 正确达标阈值
+    next_review = models.DateTimeField(default=timezone.now)  # 下次建议复习时间
 
     class Meta:
         db_table = 't_error_word'

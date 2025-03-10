@@ -1,5 +1,7 @@
 import requests
 
+from words.models import BandToWordModel
+
 
 def get_word_detail(word):
     url = f'https://v2.xxapi.cn/api/englishwords?word={word}'
