@@ -5,7 +5,7 @@ from words import views
 
 urlpatterns = [
     # path('import_wordband/', views.ImportWordBandView.as_view()),
-    path('get_word_detail/', views.GetWordDetailView.as_view()),
+    # path('get_word_detail/', views.GetWordDetailView.as_view()),
     path('learn_word/', views.LearningProcessView.as_view()),
     path('daily_record/', views.DailyRecordView.as_view()),
     path('exercise/', views.ExerciseView.as_view()),
