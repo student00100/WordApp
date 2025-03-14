@@ -133,8 +133,8 @@ class WordBandUserViewSet(ModelViewSet):
         txt_file = request.FILES.get('file')
         title = request.data.get('title')
         daily_goal = request.data.get('daily_goal')
-        if not all([title, daily_goal]):
-            return Response({'detail': 'title和daily_goal为必传'}, status=status.HTTP_400_BAD_REQUEST)
+        if not all([txt_file, title, daily_goal]):
+            return Response({'detail': 'txt_file、title和daily_goal为必传'}, status=status.HTTP_400_BAD_REQUEST)
         if UserWordBandModel.objects.filter(user=request.user, word_band__name=title).exists():
             return Response({'detail': '词书title重复'}, status=status.HTTP_400_BAD_REQUEST)
         loaded_list = []
