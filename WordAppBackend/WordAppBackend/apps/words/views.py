@@ -316,7 +316,12 @@ class ExerciseView(APIView):
 
         # 随机选择单词和题型
         word_record = random.choice(learned_words)
-        ex_type = random.choices(self.EXERCISE_TYPES, weights=self.TYPE_WEIGHTS, k=1)[0]
+        # ex_type = random.choices(self.EXERCISE_TYPES, weights=self.TYPE_WEIGHTS, k=1)[0]
+        ex_type = request.query_params.get('ex_type', None)
+        if  not ex_type or ex_type not in ['MC', 'ST', 'SF']:
+            return Response({"detail": "ex_type参数不合法,请从'MC', 'ST', 'SF'中进行选择"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         word = word_record.word
 
         # 生成题目
